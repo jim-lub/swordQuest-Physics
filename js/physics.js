@@ -1,12 +1,133 @@
 /* jshint esversion: 6 */
 class Physics {
   constructor() {
+    this.static = [];
+    this.dynamic = [];
+  }
+
+  newStaticEntity(x,  y, width, height) {
+    this.static.push(new Static({x, y, width, height}));
+  }
+
+  newDynamicEntity(x, y, width, height, mass) {
+    this.dynamic.push(new Dynamic({x, y, width, height, mass}));
+  }
+
+  update(dt) {
+    this.dynamic.forEach(cur => {
+      cur.update(dt);
+      cur.collision.statics = this.static;
+    });
+  }
+
+}
+
+class CollisionDetection {
+  constructor() {
+    this.statics = [];
+    this.collisionPoints = [];
+    this.x = false;
+    this.y = false;
+  }
+
+  update(pos, vel, width, height) {
+    this.x = false;
+    this.y = false;
+
+    this.statics.forEach(tile => {
+      if (this.boxCollision(this.hitbox(pos, vel, width, height), tile)) {
+        this.x = true;
+        this.y = true;
+      }
+    });
+
+    this.statics = [];
+  }
+
+  hit(axis) {
+    return this[axis];
+  }
+
+  boxCollision(points, tile) {
+    let isColliding = false;
+
+    for (let i = 0; i < points.length; i++) {
+      if (this.pointCollision(points[i], tile)) {
+        isColliding = true;
+        break;
+      }
+    }
+
+    return isColliding;
+  }
+
+  pointCollision(point, tile) {
+    let collisionX = point.x >= tile.x && point.x <= tile.x + tile.width;
+    let collisionY = point.y >= tile.y && point.y <=tile.y + tile.height;
+
+    return (collisionX && collisionY);
+  }
+
+  hitbox(pos, vel, width, height) {
+    return [
+      {
+        x: pos.x,
+        y: pos.y
+      },
+      {
+        x: pos.x,
+        y: pos.y + height
+      },
+      {
+        x: pos.x + width,
+        y: pos.y
+      },
+      {
+        x: pos.x + width,
+        y: pos.y + height
+      }
+    ];
+  }
+}
+
+class Entity {
+  constructor() {}
+
+}
+
+/*****************************
+*
+******************************/
+class Static extends Entity {
+  constructor(object) {
+    super();
+    this.x = object.x;
+    this.y = object.y;
+    this.width = object.width;
+    this.height = object.height;
+  }
+}
+
+
+/*****************************
+*
+******************************/
+class Dynamic extends Entity {
+  constructor(object) {
+    super();
+    this.mass = object.mass;
+    this.width = object.width;
+    this.height = object.height;
+    this.position = new Vector(object.x, object.y);
+    this.velocity = new Vector(0, 0);
+    this.acceleration = new Vector(0, 0);
+    this.collision = new CollisionDetection();
+
     this.F = {
       epsilon: 0.1,
       gravity: 9.81,
-      friction: -0.99,
-      drag: -0.8,
-      scale: 5
+      friction: -0.98,
+      drag: -0.2
     };
   }
 
@@ -16,7 +137,7 @@ class Physics {
   }
 
   _gravity() {
-    let f = new Vector(0, this.mass * this.F.gravity);
+    let f = new Vector(0, (this.F.gravity * this.mass) * 10);
     this.apply(f);
   }
 
@@ -35,53 +156,9 @@ class Physics {
     this.apply(f);
   }
 
-  /***********************
-  * These functions are for testing purposes only!
-  ************************/
-  special() { // Will trigger on spacebar press
-    this.position.y -= 1;
-    let force = new Vector(0, -50);
+  move(x, y) {
+    let force = new Vector(x, y);
     this.apply(force);
-  }
-
-  edges() {
-    if (this.position.x > 1280) this.position.x = 0;
-    if (this.position.x < 0) this.position.x = 1280;
-    if (this.position.y > 600) this.velocity.y = 0;
-    if (this.position.y < 0) this.position.y = 640;
-  }
-}
-
-class Entity extends Physics {
-  constructor() {
-    super();
-  }
-
-  collision() {
-
-  }
-}
-
-/*****************************
-*
-******************************/
-class Static extends Entity {
-  constructor(object) {
-    super();
-  }
-}
-
-
-/*****************************
-*
-******************************/
-class Dynamic extends Entity {
-  constructor(object) {
-    super();
-    this.mass = object.mass;
-    this.position = new Vector(object.x, object.y);
-    this.velocity = new Vector(0, 0);
-    this.acceleration = new Vector(0, 0);
   }
 
   XY(v) {
@@ -91,26 +168,19 @@ class Dynamic extends Entity {
     };
   }
 
-  move(x, y) {
-    let force = new Vector(x, y);
-    this.apply(force);
-  }
-
   update(dt) {
-    this._gravity();
-    this._friction();
-    this._drag();
-    dt = dt * 10;
+    this._gravity(dt);
+    this._friction(dt);
+    this._drag(dt);
 
     if (Math.abs(this.velocity.x * dt) < 0.1) this.velocity.x = 0;
 
-    // this.velocity.add(this.acceleration);
-    this.velocity.add(Vector.multiply(this.acceleration, dt));
+    this.velocity.add(this.acceleration);
 
-    this.edges();
-    let distance = Vector.multiply(this.velocity, dt);
-    this.position.add(Vector.multiply(this.velocity, dt));
-    // this.position.add(this.velocity);
+    this.collision.update(Vector.add(this.position, Vector.multiply(this.velocity, dt)), Vector.multiply(this.velocity, dt), this.width, this.height);
+
+    if (!this.collision.hit('y')) this.position.add(Vector.multiply(this.velocity, dt));
+
     this.acceleration.multiply(0);
   }
 }

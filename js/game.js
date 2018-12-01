@@ -22,59 +22,44 @@ const Game = (function({Ctrls, Entities}) {
     }
   };
 
+  const physics = new Physics();
+
   function _update(step) {
     Ctrls.emit();
 
-    const Ph = Entities.Box1;
-    let speed = 600;
-    if (Events.listen('ctrls_key_d').active) Ph.move(speed, 0);
-    if (Events.listen('ctrls_key_a').active) Ph.move(-speed, 0);
-    if (Events.listen('ctrls_key_w').active) Ph.move(0, -speed);
-    if (Events.listen('ctrls_key_s').active) Ph.move(0, speed);
-    if (Events.listen('ctrls_key_space').active) Ph.special();
-
-    Ph.update(step);
-    Entities.Box2.update(step);
-    Entities.Box3.update(step);
+    physics.update(step);
   }
 
   function _render(dt) {
     const ctx = document.getElementById('canvas').getContext('2d');
     ctx.clearRect(0, 0, 1280, 640);
 
-    const Ph = Entities.Box1;
+    player = physics.dynamic[0].XY('position');
+    player2 = physics.dynamic[1].XY('position');
+    player3 = physics.dynamic[2].XY('position');
 
 
-    let player = Ph.XY('position');
-    let velocity = Ph.XY('velocity');
-    let acceleration = Ph.XY('acceleration');
-
-    let box2 = Entities.Box2.XY('position');
-    let box3 = Entities.Box3.XY('position');
+    ctx.fillStyle = "black";
+    physics.static.forEach(tile => {
+      ctx.fillRect(tile.x, tile.y, tile.width, tile.height);
+    });
 
     ctx.fillStyle = "grey";
-    ctx.fillRect(player.x - 22.5, player.y - 22.5, 50, 50);
-    ctx.fillRect(box2.x - 22.5, box2.y - 22.5, 60, 60);
-    ctx.fillRect(box3.x - 22.5, box3.y - 22.5, 70, 70);
-
-    ctx.fillStyle = "green";
-    ctx.fillRect(player.x, player.y, 5, 5);
-    ctx.fillText(Ph.position.x, 10, 10);
-    ctx.fillText(Ph.position.y, 10, 30);
-
-    ctx.fillStyle = "red";
-    ctx.fillRect(player.x + velocity.x, player.y + velocity.y, 5, 5);
-    ctx.fillText(Ph.velocity.x, 10, 50);
-    ctx.fillText(Ph.velocity.y, 10, 70);
-    ctx.fillText(Ph.velocity.mag(), 10, 60);
-
-    ctx.fillStyle = "blue";
-    ctx.fillRect(player.x + acceleration.x * 10, player.y + acceleration.y * 10, 5, 5);
-    ctx.fillText(Ph.acceleration.x, 10, 90);
-    ctx.fillText(Ph.acceleration.y, 10, 110);
+    ctx.fillRect(player.x, player.y, 50, 50);
+    ctx.fillRect(player2.x, player2.y, 75, 75);
+    ctx.fillRect(player3.x, player3.y, 100, 100);
   }
 
   function init() {
+    physics.newDynamicEntity(150, 150, 50, 50, 80);
+    physics.newDynamicEntity(350, 150, 75, 75, 180);
+    physics.newDynamicEntity(550, 150, 100, 100, 280);
+
+    physics.newStaticEntity(150, 450, 100, 100);
+    physics.newStaticEntity(250, 550, 100, 100);
+    physics.newStaticEntity(450, 350, 100, 100);
+    physics.newStaticEntity(350, 450, 100, 100);
+    physics.newStaticEntity(550, 550, 100, 100);
     window.requestAnimationFrame(_loop.loop.bind(_loop));
   }
 
@@ -87,9 +72,4 @@ const Game = (function({Ctrls, Entities}) {
   };
 }({
   Ctrls: new Controls(),
-  Entities: {
-    Box1: new Dynamic({x: 150, y: 150, mass: 80}),
-    Box2: new Dynamic({x: 350, y: 150, mass: 100}),
-    Box3: new Dynamic({x: 550, y: 150, mass: 150})
-  }
 }));
