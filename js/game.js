@@ -22,27 +22,34 @@ const Game = (function({Ctrls, Entities}) {
     }
   };
 
-  const physics = new Physics();
+  const entities = new Engine();
 
   function _update(step) {
     Ctrls.emit();
+    if (Events.listen('ctrls_key_a').active) entities.entities[0].move(-1200, 0);
+    if (Events.listen('ctrls_key_d').active) entities.entities[0].move(1200, 0);
+    if (entities.entities[0].collision.hit('y')){
+      if (Events.listen('ctrls_key_space').active) entities.entities[0].jump(0, -15000);
+    }
 
-    physics.update(step);
+    entities.update(step);
   }
 
   function _render(dt) {
     const ctx = document.getElementById('canvas').getContext('2d');
     ctx.clearRect(0, 0, 1280, 640);
 
-    player = physics.dynamic[0].XY('position');
-    player2 = physics.dynamic[1].XY('position');
-    player3 = physics.dynamic[2].XY('position');
+    player = entities.entities[0].XY('position');
+    player2 = entities.entities[1].XY('position');
+    player3 = entities.entities[2].XY('position');
 
 
     ctx.fillStyle = "black";
-    physics.static.forEach(tile => {
+    entities.tiles.forEach(tile => {
       ctx.fillRect(tile.x, tile.y, tile.width, tile.height);
     });
+
+    ctx.fillText(entities.entities[0].velocity.x + ' - ' + entities.entities[0].velocity.y, 50, 50);
 
     ctx.fillStyle = "grey";
     ctx.fillRect(player.x, player.y, 50, 50);
@@ -51,15 +58,15 @@ const Game = (function({Ctrls, Entities}) {
   }
 
   function init() {
-    physics.newDynamicEntity(150, 150, 50, 50, 80);
-    physics.newDynamicEntity(350, 150, 75, 75, 180);
-    physics.newDynamicEntity(550, 150, 100, 100, 280);
+    entities.newEntity(150, 150, 50, 50, 100);
+    entities.newEntity(350, 150, 75, 75, 180);
+    entities.newEntity(550, 150, 100, 100, 280);
 
-    physics.newStaticEntity(150, 450, 100, 100);
-    physics.newStaticEntity(250, 550, 100, 100);
-    physics.newStaticEntity(450, 350, 100, 100);
-    physics.newStaticEntity(350, 450, 100, 100);
-    physics.newStaticEntity(550, 550, 100, 100);
+    entities.newTile(150, 450, 100, 100);
+    entities.newTile(250, 550, 100, 100);
+    entities.newTile(450, 350, 100, 100);
+    entities.newTile(360, 450, 50, 50);
+    entities.newTile(550, 550, 100, 100);
     window.requestAnimationFrame(_loop.loop.bind(_loop));
   }
 

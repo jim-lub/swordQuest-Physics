@@ -1,30 +1,29 @@
 /* jshint esversion: 6 */
-class Physics {
+class Engine {
   constructor() {
-    this.static = [];
-    this.dynamic = [];
+    this.tiles = [];
+    this.entities = [];
   }
 
-  newStaticEntity(x,  y, width, height) {
-    this.static.push(new Static({x, y, width, height}));
+  newTile(x,  y, width, height) {
+    this.tiles.push(new Tile({x, y, width, height}));
   }
 
-  newDynamicEntity(x, y, width, height, mass) {
-    this.dynamic.push(new Dynamic({x, y, width, height, mass}));
+  newEntity(x, y, width, height, mass) {
+    this.entities.push(new Dynamic({x, y, width, height, mass}));
   }
 
   update(dt) {
-    this.dynamic.forEach(cur => {
+    this.entities.forEach(cur => {
       cur.update(dt);
-      cur.collision.statics = this.static;
+      cur.collision.tiles = this.tiles;
     });
   }
-
 }
 
 class CollisionDetection {
   constructor() {
-    this.statics = [];
+    this.tiles = [];
     this.collisionPoints = [];
     this.x = false;
     this.y = false;
@@ -34,14 +33,15 @@ class CollisionDetection {
     this.x = false;
     this.y = false;
 
-    this.statics.forEach(tile => {
-      if (this.boxCollision(this.hitbox(pos, vel, width, height), tile)) {
-        this.x = true;
-        this.y = true;
-      }
+    let hitboxX = this.hitbox(pos, {x: vel.x, y: 0}, width, height);
+    let hitboxY = this.hitbox(pos, {x: 0, y: vel.y}, width, height);
+
+    this.tiles.forEach(tile => {
+      if (this.boxCollision(hitboxX, tile)) this.x = true;
+      if (this.boxCollision(hitboxY, tile)) this.y = true;
     });
 
-    this.statics = [];
+    this.tiles = [];
   }
 
   hit(axis) {
@@ -71,36 +71,31 @@ class CollisionDetection {
   hitbox(pos, vel, width, height) {
     return [
       {
-        x: pos.x,
-        y: pos.y
+        x: pos.x + vel.x,
+        y: pos.y + vel.y
       },
       {
-        x: pos.x,
-        y: pos.y + height
+        x: pos.x + vel.x,
+        y: pos.y + vel.y + height
       },
       {
-        x: pos.x + width,
-        y: pos.y
+        x: pos.x + vel.x + width,
+        y: pos.y + vel.y
       },
       {
-        x: pos.x + width,
-        y: pos.y + height
+        x: pos.x + vel.x + width,
+        y: pos.y + vel.y + height
       }
     ];
   }
 }
 
-class Entity {
-  constructor() {}
-
-}
 
 /*****************************
 *
 ******************************/
-class Static extends Entity {
+class Tile {
   constructor(object) {
-    super();
     this.x = object.x;
     this.y = object.y;
     this.width = object.width;
@@ -112,9 +107,8 @@ class Static extends Entity {
 /*****************************
 *
 ******************************/
-class Dynamic extends Entity {
+class Dynamic {
   constructor(object) {
-    super();
     this.mass = object.mass;
     this.width = object.width;
     this.height = object.height;
@@ -126,8 +120,8 @@ class Dynamic extends Entity {
     this.F = {
       epsilon: 0.1,
       gravity: 9.81,
-      friction: -0.98,
-      drag: -0.2
+      friction: -0.99,
+      drag: -0.05
     };
   }
 
@@ -137,15 +131,15 @@ class Dynamic extends Entity {
   }
 
   _gravity() {
-    let f = new Vector(0, (this.F.gravity * this.mass) * 10);
-    this.apply(f);
+    let f = new Vector(0, this.F.gravity * this.mass);
+    return f;
   }
 
   _friction() {
     let f = this.velocity.clone();
     f.normalize();
     f.multiply(this.F.friction);
-    this.apply(f);
+    return f;
   }
 
   _drag() {
@@ -153,10 +147,15 @@ class Dynamic extends Entity {
     let speed = this.velocity.mag();
     f.normalize();
     f.multiply(this.F.drag * speed * speed);
-    this.apply(f);
+    return f;
   }
 
   move(x, y) {
+    let force = new Vector(x, y);
+    this.apply(force);
+  }
+
+  jump(x, y) {
     let force = new Vector(x, y);
     this.apply(force);
   }
@@ -169,17 +168,21 @@ class Dynamic extends Entity {
   }
 
   update(dt) {
-    this._gravity(dt);
-    this._friction(dt);
-    this._drag(dt);
+    this.apply(Vector.multiply(this._gravity(), 1));
+    this.apply(Vector.multiply(this._friction(), 1));
+    this.apply(Vector.multiply(this._drag(), 1));
 
-    if (Math.abs(this.velocity.x * dt) < 0.1) this.velocity.x = 0;
+    this.velocity.add((this.acceleration.multiply(dt)));
 
-    this.velocity.add(this.acceleration);
+    // if (Math.abs(this.velocity.x) < 0.1) this.velocity.x = 0;
+    // if (Math.abs(this.velocity.y) < 0.1) this.velocity.y = 0;
 
-    this.collision.update(Vector.add(this.position, Vector.multiply(this.velocity, dt)), Vector.multiply(this.velocity, dt), this.width, this.height);
+    this.collision.update(this.position, Vector.multiply(this.velocity, dt), this.width, this.height);
 
-    if (!this.collision.hit('y')) this.position.add(Vector.multiply(this.velocity, dt));
+    if (this.collision.hit('y')) this.velocity.set(this.velocity.x, 0);
+    if (this.collision.hit('x')) this.velocity.set(0, this.velocity.y);
+
+    this.position.add(this.velocity.multiply(dt));
 
     this.acceleration.multiply(0);
   }
